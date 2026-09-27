@@ -182,8 +182,14 @@ struct std::formatter<dbg::Debug<T, Deref>> {
             template for (constexpr auto m :
                           std::define_static_array(meta::nonstatic_data_members_of(
                               ^^T, meta::access_context::unchecked()))) {
-                out = std::format_to(out, "{}{} = {}", first ? " " : ", ",
-                                     meta::identifier_of(m), wrap<Deref>(o.[:m:]));
+                if constexpr (meta::has_identifier(m)) {
+                    out = std::format_to(out, "{}{} = {}", first ? " " : ", ",
+                                         meta::identifier_of(m), wrap<Deref>(o.[:m:]));
+                } else {
+                    // 匿名成员（如匿名 union）无名字，直接递归其内容
+                    out = std::format_to(out, "{}{}", first ? " " : ", ",
+                                         wrap<Deref>(o.[:m:]));
+                }
                 first = false;
             }
 
