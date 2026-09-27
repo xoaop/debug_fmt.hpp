@@ -133,17 +133,30 @@ struct std::formatter<dbg::Debug<T, Deref>> {
             }
 
         } else if constexpr (dbg::TagUnion<T>) {
-            // tagged union：由 TagUnionTrait 显式给出判别式与 tag→成员 映射，
-            // 只打印当前活跃的那一支（读活跃成员，无 UB）。
+            // tagged union：打印类型名 + 各具名共享字段（判别式枚举也会一并显示）
+            // + 当前活跃臂（由 TagUnionTrait 定位，只读活跃成员，无 UB）。
             using TR = dbg::TagUnionTrait<T>;
-            auto out = std::format_to(ctx.out(), "{} {{ ", dbg::to_string(TR::tag(o)));
+            auto out = std::format_to(ctx.out(), "{} {{", meta::display_string_of(^^T));
+            bool first = true;
+
+            template for (constexpr auto m :
+                          std::define_static_array(meta::nonstatic_data_members_of(
+                              ^^T, meta::access_context::unchecked()))) {
+                // 具名成员 = 共享字段；匿名 union 无名字，走下面的活跃臂
+                if constexpr (meta::has_identifier(m)) {
+                    out = std::format_to(out, "{}{} = {}", first ? " " : ", ",
+                                         meta::identifier_of(m), wrap<Deref>(o.[:m:]));
+                    first = false;
+                }
+            }
 
             template for (constexpr auto e :
                           std::define_static_array(meta::enumerators_of(
                               ^^decltype(TR::tag(o))))) {
                 if (TR::tag(o) == [:e:]) {
-                    out = std::format_to(out, "{}",
+                    out = std::format_to(out, "{}{}", first ? " " : ", ",
                                          wrap<Deref>(TR::template union_val<([:e:])>(o)));
+                    first = false;
                 }
             }
 
