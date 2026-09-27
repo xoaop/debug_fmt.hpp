@@ -17,3 +17,16 @@ target_compile_features(debug_fmt INTERFACE cxx_std_26)
 # available today only in GCC (>=16) via -freflection.
 target_compile_options(debug_fmt INTERFACE
     $<$<CXX_COMPILER_ID:GNU>:-freflection>)
+
+# Smoke test — built only when debug_fmt is the top-level project, so consumers
+# that pull it in via add_subdirectory (e.g. as a submodule) don't build it.
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    add_executable(debug_fmt_test test.cpp)
+    target_link_libraries(debug_fmt_test PRIVATE debug_fmt::debug_fmt)
+    if(WIN32)
+        # std::print's terminal helpers live in libstdc++exp on MinGW; -static
+        # avoids a mismatched libstdc++ DLL; -mconsole keeps stdout visible.
+        target_link_libraries(debug_fmt_test PRIVATE stdc++exp)
+        target_link_options(debug_fmt_test PRIVATE -mconsole -static)
+    endif()
+endif()
