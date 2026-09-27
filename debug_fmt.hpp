@@ -59,6 +59,14 @@ constexpr const char *to_string(const T& value) {
 }
 
 
+// TagUnionTrait — 为「tagged union」类型特化：显式声明判别式 tag() 与 tag→成员 的
+// 映射 union_val<E>()。库不对字段顺序/命名做任何假设。未特化即非 tagged union。
+template <typename T> struct TagUnionTrait;
+
+template <typename T>
+concept TagUnion = requires (const T& x) { dbg::TagUnionTrait<T>::tag(x); };
+
+
 } // namespace dbg
 
 template <typename T, bool Deref>
@@ -120,6 +128,23 @@ struct std::formatter<dbg::Debug<T, Deref>> {
                 return std::format_to(ctx.out(), "{}",
                                       reinterpret_cast<const void*>(o));
             }
+
+        } else if constexpr (dbg::TagUnion<T>) {
+            // tagged union：由 TagUnionTrait 显式给出判别式与 tag→成员 映射，
+            // 只打印当前活跃的那一支（读活跃成员，无 UB）。
+            using TR = dbg::TagUnionTrait<T>;
+            auto out = std::format_to(ctx.out(), "{} {{ ", dbg::to_string(TR::tag(o)));
+
+            template for (constexpr auto e :
+                          std::define_static_array(meta::enumerators_of(
+                              ^^decltype(TR::tag(o))))) {
+                if (TR::tag(o) == [:e:]) {
+                    out = std::format_to(out, "{}",
+                                         wrap<Deref>(TR::template union_val<([:e:])>(o)));
+                }
+            }
+
+            return std::format_to(out, " }}");
 
         } else if constexpr (std::is_union_v<T>) {
             // 6) union: reinterpret the bytes as each member type. Reading an
