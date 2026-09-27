@@ -90,8 +90,11 @@ struct std::formatter<dbg::Debug<T, Deref>> {
 
             return std::format_to(ctx.out(), "{}", sv);
 
-        } else if constexpr (std::formattable<T, char>) {
-            // 1) leaf: hand off to the existing formatter
+        } else if constexpr (requires (std::formatter<std::remove_cvref_t<T>, char> f,
+                                       const std::remove_cvref_t<T>& v,
+                                       std::format_context& fc) { f.format(v, fc); }) {
+            // 1) leaf: 有可用 formatter 就直接交给它。不用 std::formattable——
+            //    libstdc++ 对 __int128 等有 formatter 的类型会误判为不可格式化。
             return std::format_to(ctx.out(), "{}", o);
 
         } else if constexpr (std::is_enum_v<T>) {
