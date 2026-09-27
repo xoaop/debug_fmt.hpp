@@ -29,6 +29,11 @@
 
 namespace dbg {
 
+
+
+
+
+
 // The handle users get from debug(); only meaningful when passed to std::format.
 // Holds a reference only, never copies the printed object.
 template <typename T, bool Deref = false>
@@ -41,6 +46,19 @@ template <bool Deref = false, typename T>
 constexpr Debug<T, Deref> debug(const T& value) {
     return Debug<T, Deref>{value}; 
 }
+
+template <typename T> requires (std::is_enum_v<T>)
+constexpr const char *to_string(const T& value) {
+    template for (constexpr auto e : std::define_static_array(std::meta::enumerators_of(^^T))) {
+        if (value == [:e:]) {
+            return std::meta::identifier_of(e);
+        }
+    }
+    
+    static_assert(false, "dbg::to_string: enum value not found");
+    return nullptr;
+}
+
 
 } // namespace dbg
 
