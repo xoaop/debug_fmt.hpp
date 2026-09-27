@@ -51,12 +51,11 @@ template <typename T> requires (std::is_enum_v<T>)
 constexpr const char *to_string(const T& value) {
     template for (constexpr auto e : std::define_static_array(std::meta::enumerators_of(^^T))) {
         if (value == [:e:]) {
-            return std::meta::identifier_of(e);
+            return std::define_static_string(std::meta::identifier_of(e));
         }
     }
-    
-    static_assert(false, "dbg::to_string: enum value not found");
-    return nullptr;
+
+    return "<unknown>";
 }
 
 
