@@ -23,6 +23,7 @@
 #include <cstring>
 #include <format>
 #include <ranges>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -65,6 +66,24 @@ template <typename T> struct TagUnionTrait;
 
 template <typename T>
 concept TagUnion = requires (const T& x) { dbg::TagUnionTrait<T>::tag(x); };
+
+// 独立自由函数：返回 tagged union 当前活跃臂格式化后的字符串（只是活跃成员的值，
+// 不含类型名/共享字段）。遍历 tag 枚举匹配，取对应成员交给 debug 打印。
+template <TagUnion T>
+std::string string_tag_union_val(const T& x) {
+    using TR = dbg::TagUnionTrait<T>;
+    std::string result;
+
+    template for (constexpr auto e :
+                  std::define_static_array(std::meta::enumerators_of(
+                      ^^decltype(TR::tag(x))))) {
+        if (TR::tag(x) == [:e:]) {
+            result = std::format("{}", dbg::debug(TR::template union_val<([:e:])>(x)));
+        }
+    }
+
+    return result;
+}
 
 
 } // namespace dbg
