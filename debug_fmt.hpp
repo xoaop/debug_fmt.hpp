@@ -69,7 +69,8 @@ concept TagUnion = requires (const T& x) { dbg::TagUnionTrait<T>::tag(x); };
 
 // 独立自由函数：返回 tagged union 当前活跃臂格式化后的字符串（只是活跃成员的值，
 // 不含类型名/共享字段）。遍历 tag 枚举匹配，取对应成员交给 debug 打印。
-template <TagUnion T>
+// Deref 透传给 debug：活跃臂里的指针是否解引用跟随调用方。
+template <TagUnion T, bool Deref = false>
 std::string string_tag_union_val(const T& x) {
     using TR = dbg::TagUnionTrait<T>;
     std::string result;
@@ -78,7 +79,7 @@ std::string string_tag_union_val(const T& x) {
                   std::define_static_array(std::meta::enumerators_of(
                       ^^decltype(TR::tag(x))))) {
         if (TR::tag(x) == [:e:]) {
-            result = std::format("{}", dbg::debug(TR::template union_val<([:e:])>(x)));
+            result = std::format("{}", dbg::debug<Deref>(TR::template union_val<([:e:])>(x)));
         }
     }
 
@@ -153,8 +154,7 @@ struct std::formatter<dbg::Debug<T, Deref>> {
 
         } else if constexpr (dbg::TagUnion<T>) {
             // tagged union：打印类型名 + 各具名共享字段（判别式枚举也会一并显示）
-            // + 当前活跃臂（由 TagUnionTrait 定位，只读活跃成员，无 UB）。
-            using TR = dbg::TagUnionTrait<T>;
+            // + 当前活跃臂（复用 string_tag_union_val，只读活跃成员，无 UB）。
             auto out = std::format_to(ctx.out(), "{} {{", meta::display_string_of(^^T));
             bool first = true;
 
@@ -169,15 +169,10 @@ struct std::formatter<dbg::Debug<T, Deref>> {
                 }
             }
 
-            template for (constexpr auto e :
-                          std::define_static_array(meta::enumerators_of(
-                              ^^decltype(TR::tag(o))))) {
-                if (TR::tag(o) == [:e:]) {
-                    out = std::format_to(out, "{}{}", first ? " " : ", ",
-                                         wrap<Deref>(TR::template union_val<([:e:])>(o)));
-                    first = false;
-                }
-            }
+            // 活跃臂：复用 string_tag_union_val（内部遍历 tag 枚举并格式化活跃成员）；
+            // 透传 Deref，让活跃臂里的指针一样跟随 debug<true>。
+            out = std::format_to(out, "{}{}", first ? " " : ", ",
+                                 dbg::string_tag_union_val<T, Deref>(o));
 
             return std::format_to(out, " }}");
 

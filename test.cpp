@@ -39,7 +39,32 @@ union Mixed {                                  // non-trivial member -> skipped
     ~Mixed() {}
 };
 
+// tagged union: shared discriminator + payload in an anonymous union. The
+// library knows nothing about layout/naming — tagged-ness comes from the
+// dbg::TagUnionTrait specialization below, not from any field convention.
+enum class ValueKind { Num, Text, Ptr };
+struct Value {
+    ValueKind kind;
+    union {
+        int num;
+        const char* text;
+        int* ptr;
+    };
+};
+
 } // namespace smoke
+
+// Opt a type into tagged-union printing: say how to read the discriminator, and
+// how each enumerator maps to a payload member. Only the matching arm is ever
+// read (no UB) — the inactive members are never touched.
+template <> struct dbg::TagUnionTrait<smoke::Value> {
+    static smoke::ValueKind tag(const smoke::Value& v) { return v.kind; }
+    template <smoke::ValueKind K> static decltype(auto) union_val(const smoke::Value& v) {
+        if constexpr (K == smoke::ValueKind::Num) return (v.num);
+        else if constexpr (K == smoke::ValueKind::Text) return (v.text);
+        else return (v.ptr);
+    }
+};
 
 int main() {
     using namespace smoke;
@@ -99,4 +124,15 @@ int main() {
     std::println("{}", dbg::debug(std::optional<int>{5}));
     std::println("{}", dbg::debug(std::optional<int>{}));   // empty optional
     std::println("{}", dbg::debug(std::variant<int, Dir>{Dir::South}));
+
+    std::println("---- 8. tagged union (TagUnionTrait) ----");
+    Value vn{}; vn.kind = ValueKind::Num;  vn.num = 42;
+    Value vt{}; vt.kind = ValueKind::Text; vt.text = "hello";
+    int n = 7;
+    Value vp{}; vp.kind = ValueKind::Ptr;  vp.ptr = &n;
+    std::println("{}", dbg::debug(vn));            // discriminator + active arm (num)
+    std::println("{}", dbg::debug(vt));            // active arm is a C-string
+    std::println("{}", dbg::debug(vp));            // active arm pointer -> address
+    std::println("{}", dbg::debug<true>(vp));      // Deref reaches the active arm -> &7
+    std::println("{}", dbg::debug(std::vector<Value>{vn, vt})); // tagged unions as range elems
 }
