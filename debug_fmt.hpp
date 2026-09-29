@@ -10,11 +10,15 @@
 //               char*/void* fall through to leaf.
 //   5 class   : recurse direct bases (incl. private), then all data members
 //   6 union   : replay the bytes as each member type; skip non-trivial members
+//   7 tag-union : via dbg::TagUnionTrait<T>: shared fields + the live arm only
 //
 // Public API: dbg::debug(x) prints pointer addresses; dbg::debug<true>(x)
 // follows them. Deref is a compile-time flag propagated down the recursion.
-// The implementation lives in private members of the std::formatter
-// specialization below — no other translation unit can name or reach it.
+// Also public, usable on their own: dbg::to_string(enum) yields the reflected
+// name as const char*, dbg::string_tag_union_val(x[, Deref]) yields the live
+// arm formatted as std::string. The printer's recursion lives in private
+// members of the std::formatter specialization below — no other translation
+// unit can name or reach it.
 // Requires P2996 + P1306 (GCC: -freflection).
 
 #include <meta>

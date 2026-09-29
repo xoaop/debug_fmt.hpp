@@ -85,6 +85,9 @@ int main() {
     std::println("{}", dbg::debug(Dir::West));
     std::println("{}", dbg::debug(static_cast<Dir>(99))); // unmatched -> underlying 99
     std::println("{}", dbg::debug(Alias::B));      // alias -> first same-value name
+    // free function (interface: enum -> reflected name, usable standalone)
+    std::println("to_string: {}", dbg::to_string(Dir::East));           // -> East
+    std::println("to_string: {}", dbg::to_string(static_cast<Dir>(99))); // unmatched -> <unknown>
 
     std::println("---- 3. range (only non-formattable ranges land here) ----");
     int carr[3] = {1, 2, 3};
@@ -135,4 +138,7 @@ int main() {
     std::println("{}", dbg::debug(vp));            // active arm pointer -> address
     std::println("{}", dbg::debug<true>(vp));      // Deref reaches the active arm -> &7
     std::println("{}", dbg::debug(std::vector<Value>{vn, vt})); // tagged unions as range elems
+    // free function (interface: tagged union -> live arm's value, formatted)
+    std::println("string_tag_union_val: {}", dbg::string_tag_union_val(vn));                     // 42
+    std::println("string_tag_union_val<true>: {}", dbg::string_tag_union_val<Value, true>(vp)); // &7
 }
